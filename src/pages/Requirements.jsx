@@ -321,11 +321,9 @@ const RecursiveSectionNode = ({ node, projectId, depth = 0, address }) => {
                        </Button>
                      </>
                    )}
-                   {depth > 0 && (
-                     <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => deleteSectionNode(projectId, node.id)}>
-                       <Trash2 size={12} /> Delete
-                     </Button>
-                   )}
+                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => deleteSectionNode(projectId, node.id)}>
+                      <Trash2 size={12} /> Delete
+                    </Button>
                  </div>
 
                  {node.children?.length > 0 && (
@@ -363,7 +361,7 @@ const SortableRootSection = ({ node, projectId, index }) => {
 export default function Requirements() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { projects, addRequirement, updateRequirement, deleteRequirement, reorderRequirements, reorderSections, initializeTemplate } = useProjectStore();
+  const { projects, updateProject, addRequirement, updateRequirement, deleteRequirement, reorderRequirements, reorderSections, initializeTemplate, addSectionNode } = useProjectStore();
   
   const undo = useStore(useProjectStore.temporal, state => state.undo);
   const redo = useStore(useProjectStore.temporal, state => state.redo);
@@ -374,6 +372,7 @@ export default function Requirements() {
   const [activeId, setActiveId] = useState(null);
   const [settingsExpanded, setSettingsExpanded] = useState(false);
   const coverInputRef = React.useRef(null);
+  const headerInputRef = React.useRef(null);
 
   const handleCoverUpload = (e) => {
     const file = e.target.files?.[0];
@@ -381,6 +380,17 @@ export default function Requirements() {
     const reader = new FileReader();
     reader.onload = (event) => {
       useProjectStore.getState().updateProject(project.id, { coverImage: event.target.result });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleHeaderUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      useProjectStore.getState().updateProject(project.id, { headerImage: event.target.result });
     };
     reader.readAsDataURL(file);
     e.target.value = '';
@@ -499,6 +509,20 @@ export default function Requirements() {
                         )}
                       </div>
                     </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-slate-700">Document Header/Footer Template</label>
+                      <div className="flex items-center gap-3">
+                        <input type="file" ref={headerInputRef} style={{ display: 'none' }} accept="image/png, image/jpeg" onChange={handleHeaderUpload} />
+                        <Button variant="outline" className="flex-1" onClick={() => headerInputRef.current?.click()}>
+                          <ImageIcon size={16} className="mr-2" /> {project.headerImage ? 'Change Template' : 'Upload Template'}
+                        </Button>
+                        {project.headerImage && (
+                          <Button variant="ghost" size="icon" className="text-red-500 hover:bg-red-50 hover:text-red-700" onClick={() => useProjectStore.getState().updateProject(project.id, { headerImage: null })}>
+                            <Trash2 size={16} />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                     <Input 
                       label="Prepared By" 
                       placeholder="Name" 
@@ -511,6 +535,53 @@ export default function Requirements() {
                       value={project.approvedBy || ''} 
                       onChange={(e) => useProjectStore.getState().updateProject(project.id, { approvedBy: e.target.value })} 
                     />
+                  </div>
+                  
+                  <div className="mt-6 border-t border-slate-100 pt-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <label className="text-sm font-medium text-slate-700">Document Version History</label>
+                      <Button variant="outline" size="sm" onClick={() => {
+                        const history = project.versionHistory || [{ version: '1.0', date: new Date().toLocaleDateString('en-GB'), amendment: 'Initial Release', author: project.preparedBy || '' }];
+                        useProjectStore.getState().updateProject(project.id, {
+                          versionHistory: [...history, { version: '', date: new Date().toLocaleDateString('en-GB'), amendment: '', author: '' }]
+                        });
+                      }}>
+                        <Plus size={14} className="mr-1" /> Add Version
+                      </Button>
+                    </div>
+                    <div className="space-y-3">
+                      {(project.versionHistory || [{ version: '1.0', date: new Date().toLocaleDateString('en-GB'), amendment: 'Initial Release', author: project.preparedBy || 'Author' }]).map((vh, i) => (
+                        <div key={i} className="flex gap-3 items-start bg-slate-50 p-3 rounded-lg border border-slate-200">
+                          <Input placeholder="Version" value={vh.version || ''} onChange={(e) => {
+                            const newHistory = [...(project.versionHistory || [{ version: '1.0', date: new Date().toLocaleDateString('en-GB'), amendment: 'Initial Release', author: project.preparedBy || 'Author' }])];
+                            newHistory[i].version = e.target.value;
+                            useProjectStore.getState().updateProject(project.id, { versionHistory: newHistory });
+                          }} className="w-24" />
+                          <Input placeholder="Date" value={vh.date || ''} onChange={(e) => {
+                            const newHistory = [...(project.versionHistory || [{ version: '1.0', date: new Date().toLocaleDateString('en-GB'), amendment: 'Initial Release', author: project.preparedBy || 'Author' }])];
+                            newHistory[i].date = e.target.value;
+                            useProjectStore.getState().updateProject(project.id, { versionHistory: newHistory });
+                          }} className="w-32" />
+                          <Input placeholder="Amendment" value={vh.amendment || ''} onChange={(e) => {
+                            const newHistory = [...(project.versionHistory || [{ version: '1.0', date: new Date().toLocaleDateString('en-GB'), amendment: 'Initial Release', author: project.preparedBy || 'Author' }])];
+                            newHistory[i].amendment = e.target.value;
+                            useProjectStore.getState().updateProject(project.id, { versionHistory: newHistory });
+                          }} className="flex-1" />
+                          <Input placeholder="Author" value={vh.author || ''} onChange={(e) => {
+                            const newHistory = [...(project.versionHistory || [{ version: '1.0', date: new Date().toLocaleDateString('en-GB'), amendment: 'Initial Release', author: project.preparedBy || 'Author' }])];
+                            newHistory[i].author = e.target.value;
+                            useProjectStore.getState().updateProject(project.id, { versionHistory: newHistory });
+                          }} className="w-48" />
+                          <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0 mt-0.5" onClick={() => {
+                            const newHistory = [...(project.versionHistory || [{ version: '1.0', date: new Date().toLocaleDateString('en-GB'), amendment: 'Initial Release', author: project.preparedBy || 'Author' }])];
+                            newHistory.splice(i, 1);
+                            useProjectStore.getState().updateProject(project.id, { versionHistory: newHistory });
+                          }}>
+                            <Trash2 size={16} />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </motion.div>

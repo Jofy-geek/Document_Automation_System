@@ -1,11 +1,14 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import { useProjectStore } from './store/useProjectStore';
+import { useAuthStore } from './store/useAuthStore';
 import Dashboard from './pages/Dashboard';
 import CreateProject from './pages/CreateProject';
 import Requirements from './pages/Requirements';
 import Preview from './pages/Preview';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
 
 const TITLES_TO_REMOVE = [
   "Bulk QR Code Generation Engine",
@@ -22,6 +25,18 @@ const TITLES_TO_REMOVE = [
   "Admin User",
   "Export Record"
 ];
+
+// Protected Route Wrapper
+const ProtectedRoute = () => {
+  const { user } = useAuthStore();
+  const location = useLocation();
+
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return <Outlet />;
+};
 
 function App() {
   useEffect(() => {
@@ -62,16 +77,30 @@ function App() {
     }
   }, []);
 
+  // Prevent logged in users from seeing the login page
+  const PublicRoute = () => {
+    const { user } = useAuthStore();
+    return user ? <Navigate to="/" replace /> : <Outlet />;
+  };
+
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="projects/new" element={<CreateProject />} />
-          <Route path="projects/:id/requirements" element={<Requirements />} />
-          <Route path="projects/:id/preview" element={<Preview />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+        <Route element={<PublicRoute />}>
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
         </Route>
+
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="projects/new" element={<CreateProject />} />
+            <Route path="projects/:id/requirements" element={<Requirements />} />
+            <Route path="projects/:id/preview" element={<Preview />} />
+          </Route>
+        </Route>
+        
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

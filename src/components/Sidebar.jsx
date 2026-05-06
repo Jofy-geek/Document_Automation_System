@@ -1,9 +1,18 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, FolderPlus, FileText, Settings, LogOut } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAuthStore } from '../store/useAuthStore';
 
 export default function Sidebar() {
+  const navigate = useNavigate();
+  const { logout } = useAuthStore();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   const menuItems = [
     { path: '/', name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
     { path: '/projects/new', name: 'Create Project', icon: <FolderPlus size={20} /> },
@@ -42,7 +51,7 @@ export default function Sidebar() {
           <Settings size={20} />
           Settings
         </button>
-        <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-all">
+        <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-all">
           <LogOut size={20} />
           Logout
         </button>

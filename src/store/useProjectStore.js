@@ -240,7 +240,7 @@ export const useProjectStore = create(
         projects: state.projects.map(p => {
           if (p.id !== projectId) return p;
           if (!parentId) {
-             return { ...p, sections: [...p.sections, { ...newNode, id: uuidv4(), content: '', children: [] }] };
+             return { ...p, sections: [...(p.sections || []), { ...newNode, id: uuidv4(), content: '', children: [] }] };
           }
           return {
             ...p,

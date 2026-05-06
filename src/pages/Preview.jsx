@@ -10,7 +10,7 @@ import jsPDF from 'jspdf';
 const RecursivePreviewNode = ({ node, depth, address }) => {
   const HeaderTag = depth === 0 ? 'h3' : depth === 1 ? 'h4' : 'h5';
   const headerClass = depth === 0 
-    ? "text-2xl font-bold font-sans border-b border-slate-200 pb-2 mt-8 mb-4" 
+    ? "text-2xl font-bold font-sans border-b border-slate-200 pb-2 mb-4" 
     : depth === 1 
       ? "text-xl font-semibold font-sans mt-6 mb-3 text-slate-800" 
       : "text-lg font-medium font-sans mt-4 mb-2 text-slate-700";
@@ -97,6 +97,94 @@ const RecursiveTOCNode = ({ node, depth, address, pageMap }) => {
   );
 };
 
+const HeaderBlock = ({ project }) => {
+  if (!project.headerImage) return <div className="pt-[120px]" />;
+  return (
+    <div 
+      className="w-full shrink-0 relative z-10" 
+      style={{ 
+        height: '150px', 
+        backgroundImage: `url(${project.headerImage})`, 
+        backgroundPosition: 'top', 
+        backgroundSize: '100% 1123px',
+        backgroundRepeat: 'no-repeat' 
+      }} 
+    />
+  );
+};
+
+const FooterBlock = ({ project }) => {
+  if (!project.headerImage) return <div className="pb-[100px] mt-auto" />;
+  return (
+    <div 
+      className="w-full shrink-0 mt-auto relative z-10" 
+      style={{ 
+        height: '120px', 
+        backgroundImage: `url(${project.headerImage})`, 
+        backgroundPosition: 'bottom', 
+        backgroundSize: '100% 1123px',
+        backgroundRepeat: 'no-repeat' 
+      }} 
+    />
+  );
+};
+
+const WatermarkLayer = ({ project }) => {
+  if (!project.headerImage) return null;
+  return (
+    <div 
+      className="absolute inset-0 w-full h-full pointer-events-none z-0"
+      style={{
+        backgroundImage: `url(${project.headerImage})`,
+        backgroundPosition: 'top center',
+        backgroundSize: '100% 1123px',
+        backgroundRepeat: 'repeat-y',
+        WebkitMaskImage: 'repeating-linear-gradient(to bottom, transparent 0px, transparent 150px, black 150px, black 1003px, transparent 1003px, transparent 1123px)',
+        maskImage: 'repeating-linear-gradient(to bottom, transparent 0px, transparent 150px, black 150px, black 1003px, transparent 1003px, transparent 1123px)'
+      }}
+    />
+  );
+};
+
+const A4Page = ({ children, project, isCover = false }) => {
+  if (isCover) {
+    return (
+      <div 
+        className="relative flex flex-col w-full bg-white border-b border-slate-200 overflow-hidden"
+        style={{ 
+          minHeight: '1123px', 
+          pageBreakAfter: 'always',
+          backgroundImage: project.coverImage ? `url(${project.coverImage})` : 'none',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      >
+        <div className="flex-1 w-full relative z-10 flex flex-col">
+          {children}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      className="relative flex flex-col w-full bg-white border-b border-slate-200 overflow-hidden"
+      style={{ 
+        minHeight: '1123px', 
+        pageBreakAfter: 'always',
+      }}
+    >
+      <WatermarkLayer project={project} />
+      <HeaderBlock project={project} />
+      <div className="flex-1 w-full relative z-10 flex flex-col px-16 pb-4 pt-0">
+        {children}
+      </div>
+      <FooterBlock project={project} />
+    </div>
+  );
+};
+
 export default function Preview() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -159,9 +247,21 @@ export default function Preview() {
       const pdf = new jsPDF('p', 'mm', 'a4');
       
       const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      let heightLeft = pdfHeight;
+      let position = 0;
+      
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
+      
+      while (heightLeft > 0) {
+        position = heightLeft - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+      }
       
       const date = new Date().toISOString().split('T')[0];
       const docType = project.documentType || 'SRS';
@@ -254,24 +354,20 @@ export default function Preview() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="bg-white p-12 md:p-16 rounded-xl shadow-lg border border-slate-200 mx-auto w-full origin-top relative overflow-hidden"
+            className="flex justify-center w-full origin-top relative overflow-visible"
           >
-             <div ref={docRef} className="bg-white p-4">
-                <div className="max-w-3xl mx-auto font-sans text-slate-900">
+             <div 
+               ref={docRef} 
+               className="bg-slate-100 shadow-2xl border border-slate-200 relative"
+               style={{
+                 width: '794px',
+               }}
+             >
+                <div className="font-sans text-slate-900 w-full h-full relative z-10">
                   {/* COVER PAGE */}
-                  <div 
-                    className="relative flex flex-col justify-center items-center w-full bg-white border-b border-slate-200"
-                    style={{ 
-                      minHeight: '1123px', // A4 pixel height approx
-                      pageBreakAfter: 'always',
-                      backgroundImage: project.coverImage ? `url(${project.coverImage})` : 'none',
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      backgroundRepeat: 'no-repeat',
-                      marginBottom: '4rem'
-                    }}
-                  >
-                    {/* Centered Text Container */}
+                  <A4Page project={project} isCover={true}>
+                    <div className="flex-1 flex flex-col justify-center items-center w-full">
+                      {/* Centered Text Container */}
                     <div className="text-center z-10 w-full px-16 -mt-32">
                       <h2 className="text-4xl font-bold text-slate-800 mb-12 tracking-wider leading-snug whitespace-pre-wrap" style={{ fontFamily: 'Times New Roman, serif' }}>
                         {project.documentType === 'BRD' ? 'BUSINESS REQUIREMENT\nDOCUMENT' : 'SOFTWARE REQUIREMENTS\nSPECIFICATION'}
@@ -297,22 +393,40 @@ export default function Preview() {
                         Approved by: <span className="font-normal">{project.approvedBy || ''}</span>
                       </p>
                     </div>
-                  </div>
+                    </div>
+                  </A4Page>
 
-                  {/* Document Metadata & Date (Optional, kept for reference below Cover) */}
-                  <div className="flex justify-between items-end text-sm text-slate-500 mb-12 px-8">
-                    <div>
-                      <p className="font-semibold text-slate-800">Generated On:</p>
-                      <p>{new Date().toLocaleDateString()}</p>
+                  {/* DOCUMENT VERSION PAGE */}
+                  <A4Page project={project}>
+                    <h2 className="text-3xl font-bold mb-12 text-black text-center" style={{ fontFamily: 'Times New Roman, serif' }}>
+                      DOCUMENT VERSION
+                    </h2>
+                    <div className="w-full px-16">
+                      <table className="w-full text-center border-collapse text-[16px] mb-4 border border-slate-200" style={{ fontFamily: 'Times New Roman, serif' }}>
+                        <thead>
+                          <tr className="bg-[#e4e9f2]">
+                            <th className="border border-slate-200 px-4 py-3 font-bold text-black w-1/5">VERSION</th>
+                            <th className="border border-slate-200 px-4 py-3 font-bold text-black w-1/5">DATE</th>
+                            <th className="border border-slate-200 px-4 py-3 font-bold text-black w-2/5">AMENDMENT</th>
+                            <th className="border border-slate-200 px-4 py-3 font-bold text-black w-1/5">AUTHOR</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(project.versionHistory || [{ version: '1.0', date: new Date().toLocaleDateString('en-GB'), amendment: 'Initial Release', author: project.preparedBy || 'Author' }]).map((vh, i) => (
+                            <tr key={i} className="bg-white">
+                              <td className="border border-slate-200 px-4 py-3 text-black">{vh.version}</td>
+                              <td className="border border-slate-200 px-4 py-3 text-black">{vh.date}</td>
+                              <td className="border border-slate-200 px-4 py-3 text-black">{vh.amendment}</td>
+                              <td className="border border-slate-200 px-4 py-3 text-black">{vh.author}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-slate-800">Status:</p>
-                      <p>DRAFT 1.0</p>
-                    </div>
-                  </div>
+                  </A4Page>
 
                   {/* Table of Contents */}
-                  <div className="mb-12 bg-slate-50/50 rounded-xl p-8 border border-slate-200 break-inside-avoid">
+                  <A4Page project={project}>
                     <h3 className="text-2xl font-bold font-sans mb-6 text-slate-800 border-b border-slate-200 pb-2">Table of Contents</h3>
                     <div className="space-y-1 font-sans">
                       {useTreeMode ? (
@@ -344,32 +458,40 @@ export default function Preview() {
                         </>
                       )}
                     </div>
-                  </div>
+                  </A4Page>
 
                   {/* Dynamic Hierarchical Output */}
-                  {useTreeMode && project.sections && (
-                    <div className="space-y-2">
-                       {project.sections.map((sec, index) => (
-                         <RecursivePreviewNode key={sec.id} node={sec} depth={0} address={(index + 1).toString()} />
-                       ))}
-                    </div>
-                  )}
+                  <div className="w-full pb-16 bg-slate-100">
+                    {useTreeMode && project.sections && (
+                      <div className="w-full">
+                         {project.sections.map((sec, index) => (
+                           <A4Page key={sec.id} project={project}>
+                             <RecursivePreviewNode node={sec} depth={0} address={(index + 1).toString()} />
+                           </A4Page>
+                         ))}
+                      </div>
+                    )}
 
-                  {/* SRS Legacy Flat Output */}
-                  {!useTreeMode && (
-                    <>
-                      <section id="srs-sec-1" data-section-id="srs-sec-1" className="space-y-4 mb-8 pt-4">
-                        <h3 className="text-2xl font-bold border-b border-slate-200 pb-2">1. Executive Summary</h3>
-                        <p className="text-[15px]">{project.description || "No description provided."}</p>
-                      </section>
+                    {/* SRS Legacy Flat Output */}
+                    {!useTreeMode && (
+                    <div className="w-full">
+                      <A4Page project={project}>
+                        <section id="srs-sec-1" data-section-id="srs-sec-1" className="space-y-4 mb-8">
+                          <h3 className="text-2xl font-bold border-b border-slate-200 pb-2">1. Executive Summary</h3>
+                          <p className="text-[15px]">{project.description || "No description provided."}</p>
+                        </section>
+                      </A4Page>
 
-                      <section id="srs-sec-2" data-section-id="srs-sec-2" className="space-y-4 mb-8 pt-4">
-                        <h3 className="text-2xl font-bold border-b border-slate-200 pb-2">2. Scope & Objectives</h3>
-                        <p className="whitespace-pre-wrap text-[15px]">{project.scope || "No explicit scope defined."}</p>
-                      </section>
+                      <A4Page project={project}>
+                        <section id="srs-sec-2" data-section-id="srs-sec-2" className="space-y-4 mb-8">
+                          <h3 className="text-2xl font-bold border-b border-slate-200 pb-2">2. Scope & Objectives</h3>
+                          <p className="whitespace-pre-wrap text-[15px]">{project.scope || "No explicit scope defined."}</p>
+                        </section>
+                      </A4Page>
 
-                      <section id="srs-sec-3" data-section-id="srs-sec-3" className="space-y-6 pt-4">
-                        <h3 className="text-2xl font-bold border-b border-slate-200 pb-2">3. Requirements</h3>
+                      <A4Page project={project}>
+                        <section id="srs-sec-3" data-section-id="srs-sec-3" className="space-y-6">
+                          <h3 className="text-2xl font-bold border-b border-slate-200 pb-2">3. Requirements</h3>
                         
                         <div className="space-y-6">
                           <h4 id="srs-sec-3-1" data-section-id="srs-sec-3-1" className="text-xl font-semibold pt-4">3.1. Functional Requirements</h4>
@@ -416,9 +538,11 @@ export default function Preview() {
                             </table>
                           ) : <p className="italic text-slate-500 text-sm">No non-functional requirements declared.</p>}
                         </div>
-                      </section>
-                    </>
+                        </section>
+                      </A4Page>
+                    </div>
                   )}
+                  </div>
                 </div>
              </div>
           </motion.div>
